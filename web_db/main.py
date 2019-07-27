@@ -20,20 +20,6 @@ def get_all(name, limit):
     else:
         return WebDbEntry.query(WebDbEntry.name == name).order(-WebDbEntry.datetime).fetch()
 
-
-def disactivate(entry):
-    entry.is_active = False
-    entry.put()
-
-def disactivate_latest(name):
-    latest = get_latest(name)
-    if latest:
-        disactivate(latest)
-
-def activate(entry):
-    entry.is_active = True
-    entry.put()        
-
 """ Model """
 
 class WebDbEntry(ndb.Model):
@@ -100,7 +86,7 @@ class UnsetHandler(webapp2.RequestHandler):
 class NumEqualToHandler(webapp2.RequestHandler):
     def get(self):
         value = self.request.get("value")
-        # NOTICE: suppose that None is illegal value
+        # NOTICE: suppose that None is an illegal value
         count = WebDbEntry.query(WebDbEntry.value == value, WebDbEntry.is_active == True).count() if value != None else 0
 
         self.response.headers['Content-Type'] = 'text/plain'
