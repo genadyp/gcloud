@@ -1,17 +1,3 @@
-# Copyright 2016 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions an        # key = WebDbKey(name=name).key
-        # response = WebDbEntry.get_by_id(key)d
-# limitations under the License.
 
 import webapp2
 from google.appengine.ext import ndb
@@ -58,21 +44,11 @@ class WebDbEntry(ndb.Model):
     next_key = ndb.StringProperty()
     datetime = ndb.DateTimeProperty(auto_now=True)
 
-
-
 """ Handlers """
 
 class GetHandler(webapp2.RequestHandler):
     def get(self):
         name = self.request.get("name")
-
-        # key = WebDbKey(name=name).key
-        # response = WebDbEntry.get_by_id(key)
-
-        # response = WebDbEntry.get_by_id(name)
-        
-        # response = WebDbEntry.query(WebDbEntry.name == name).order(-WebDbEntry.date).fetch(limit=1)
-        # value = response[0].value if response else None
 
         response = get_latest(name)
         value = response.value if response else None
@@ -85,13 +61,6 @@ class SetHandler(webapp2.RequestHandler):
         name = self.request.get("name")
         value = self.request.get("value")
 
-        # key = WebDbKey(name=name).key
-        # model = WebDbEntry(key=key, value=value)
-
-        # model = WebDbEntry(value=value)
-        # model.key = ndb.Key(WebDbEntry, name)
-
-        # disactivate_latest(name)
         latest = get_latest(name)
 
         if not latest:
@@ -114,19 +83,6 @@ class SetHandler(webapp2.RequestHandler):
 class UnsetHandler(webapp2.RequestHandler):
     def delete(self):
         name = self.request.get("name")
-
-        # key = WebDbKey(name=name).key
-        # response = WebDbEntry.get_by_id(key)
-        # key = ndb.Key(WebDbEntry, name)
-        # key.delete()
-        # response = WebDbEntry.query(WebDbEntry.name == name).fetch()
-
-        # keys = WebDbEntry.query(WebDbEntry.name == name).fetch(keys_only=True)
-        # ndb.delete_multi(keys)
-
-        # disactivate_latest(name)
-        # none_entry = WebDbEntry(name=name, value=None, is_active=False)
-        # none_entry.put()
 
         latest = get_latest(name)
         none = WebDbEntry(name=name, value=None, is_active=True)
@@ -164,16 +120,6 @@ class UndoHandler(webapp2.RequestHandler):
             previous = previous_key.get()
             previous.is_active = True
             previous.put()
-
-            # entries = get_all(name, 2)
-            # disactivate(latest_entry)
-
-            # if len(entries) == 2:
-            #     activate(entries[1])
-            #     value = entries[1].value
-            # else:
-            #     none_entry = WebDbEntry(name=name, value=None, is_active=False)
-            #     none_entry.put()
 
             self.response.headers['Content-Type'] = 'text/plain'
             self.response.write('%s = %s' % (name, previous.value))

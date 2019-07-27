@@ -13,6 +13,12 @@ indexes:
 - kind: WebDbEntry
   properties:
   - name: is_active
+  - name: datetime
+    direction: desc
+
+- kind: WebDbEntry
+  properties:
+  - name: is_active
   - name: name
   - name: datetime
     direction: desc
