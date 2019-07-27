@@ -209,6 +209,8 @@ class EndHandler(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.write('CLEANED')
 
+""" App """
+
 app = webapp2.WSGIApplication([
     ('/get',    GetHandler),
     ('/set',     SetHandler),
