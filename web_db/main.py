@@ -56,6 +56,29 @@ def unset_name(name):
         latest.next_key = none.key.urlsafe()
         latest.put()
 
+def undo_value(key):
+    latest = key.get()
+
+    if latest and latest.previous_key:
+        latest.is_active = False
+        latest.put()
+
+        previous_key = ndb.Key(urlsafe=latest.previous_key)
+        previous = previous_key.get()
+        previous.is_active = True
+        previous.put()
+
+def redo_value(key):
+    latest = key.get()
+    if latest and latest.next_key:
+        latest.is_active = False
+        latest.put()
+
+        next_key = ndb.Key(urlsafe=latest.next_key)
+        next_entry = next_key.get()
+        next_entry.is_active = True
+        next_entry.put()
+
 """ Model """
 
 class WebDbEntry(ndb.Model):
@@ -107,7 +130,7 @@ class UnsetHandler(webapp2.RequestHandler):
         # Should we return response immediately??
         while True:
             current = get_latest(name)
-            if current and current.value == value:
+            if current and current.value == None:
                 break
             else:
                 time.sleep(DEFER_WAIT)
@@ -127,40 +150,41 @@ class NumEqualToHandler(webapp2.RequestHandler):
 
 class UndoHandler(webapp2.RequestHandler):
     def put(self):
-        latest_entry = get_latest(None)
-        if latest_entry and latest_entry.previous_key:
-            name = latest_entry.name
+        latest = get_latest(None)
+        name = latest.name
+        if latest and latest.previous_key:
+            deferred.defer(undo_value, latest.key, _countdown=DEFER_COUNTDOWN)
 
-            latest_entry.is_active = False
-            latest_entry.put()
-
-            previous_key = ndb.Key(urlsafe=latest_entry.previous_key)
-            previous = previous_key.get()
-            previous.is_active = True
-            previous.put()
+            while True:
+                current = get_latest(name)
+                if current.key != latest.key:
+                    break
+                else:
+                    time.sleep(DEFER_WAIT)
 
             self.response.headers['Content-Type'] = 'text/plain'
-            self.response.write('%s = %s' % (name, previous.value))
+            self.response.write('%s = %s' % (name, current.value))
         else:
             self.response.headers['Content-Type'] = 'text/plain'
             self.response.write('NO COMMANDS')
 
 class RedoHandler(webapp2.RequestHandler):
     def put(self):
-        latest_entry = get_latest(None)
-        if latest_entry and latest_entry.next_key:
-            name = latest_entry.name
+        latest = get_latest(None)
+        name = latest.name
+        if latest and latest.next_key:
+            deferred.defer(redo_value, latest.key, _countdown=DEFER_COUNTDOWN)
 
-            latest_entry.is_active = False
-            latest_entry.put()
+            while True:
+                current = get_latest(name)
+                if current.key != latest.key:
+                    break
+                else:
+                    time.sleep(DEFER_WAIT)
 
-            next_key = ndb.Key(urlsafe=latest_entry.next_key)
-            next_entry = next_key.get()
-            next_entry.is_active = True
-            next_entry.put()
 
             self.response.headers['Content-Type'] = 'text/plain'
-            self.response.write('%s = %s' % (name, next_entry.value))
+            self.response.write('%s = %s' % (name, current.value))
         else:
             self.response.headers['Content-Type'] = 'text/plain'
             self.response.write('NO COMMANDS')
