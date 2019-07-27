@@ -3,6 +3,14 @@ import webapp2
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
 
+from google.appengine.ext import deferred
+import time
+
+""" Constants """
+    
+DEFER_COUNTDOWN = 1
+DEFER_WAIT = .500
+
 """ NDB utils """
 
 def get_latest(name):
@@ -20,6 +28,33 @@ def get_all(name, limit):
     else:
         return WebDbEntry.query(WebDbEntry.name == name).order(-WebDbEntry.datetime).fetch()
 
+def put_value(name, value):
+    latest = get_latest(name)
+
+    if not latest:
+        latest = WebDbEntry(name=name, value=None, is_active=True)       
+        latest.put()
+
+    entry = WebDbEntry(name=name, value=value, is_active=True)
+    entry.previous_key = latest.key.urlsafe()
+    entry.next_key = None
+    entry.is_active = True
+    key = entry.put()
+
+    latest.is_active = False
+    latest.next_key = key.urlsafe()
+    latest.put()
+
+def unset_name(name):
+    latest = get_latest(name)
+    none = WebDbEntry(name=name, value=None, is_active=True)
+    none.previous_key = latest.key.urlsafe() if latest else None
+    none.put()
+
+    if latest:
+        latest.is_active = False
+        latest.next_key = none.key.urlsafe()
+        latest.put()
 
 def disactivate(entry):
     entry.is_active = False
@@ -61,21 +96,16 @@ class SetHandler(webapp2.RequestHandler):
         name = self.request.get("name")
         value = self.request.get("value")
 
-        latest = get_latest(name)
+        deferred.defer(put_value, name, value, _countdown=DEFER_COUNTDOWN)
 
-        if not latest:
-            latest = WebDbEntry(name=name, value=None, is_active=True)       
-            latest.put()
-
-        entry = WebDbEntry(name=name, value=value, is_active=True)
-        entry.previous_key = latest.key.urlsafe()
-        entry.next_key = None
-        entry.is_active = True
-        key = entry.put()
-
-        latest.is_active = False
-        latest.next_key = key.urlsafe()
-        latest.put()
+        # TODO: Do we actually need it??
+        # Should we return response immediately??
+        while True:
+            current = get_latest(name)
+            if current and current.value == value:
+                break
+            else:
+                time.sleep(DEFER_WAIT)
 
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.write('%s = %s' % (name, value))
@@ -84,15 +114,16 @@ class UnsetHandler(webapp2.RequestHandler):
     def delete(self):
         name = self.request.get("name")
 
-        latest = get_latest(name)
-        none = WebDbEntry(name=name, value=None, is_active=True)
-        none.previous_key = latest.key.urlsafe() if latest else None
-        none.put()
-
-        if latest:
-            latest.is_active = False
-            latest.next_key = none.key.urlsafe()
-            latest.put()
+        deferred.defer(unset_name, name, _countdown=DEFER_COUNTDOWN)
+       
+        # TODO: Do we actually need it?? 
+        # Should we return response immediately??
+        while True:
+            current = get_latest(name)
+            if current and current.value == value:
+                break
+            else:
+                time.sleep(DEFER_WAIT)
 
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.write('%s = %s' % (name, 'None'))
